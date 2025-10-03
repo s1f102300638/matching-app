@@ -174,7 +174,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 一時的な管理者設定エンドポイント（登録後に削除すること）
+// TEMP ADMIN SETUP ENDPOINT - DELETE AFTER USE
 app.post('/api/setup-admin', async (req, res) => {
   const { email, secretKey } = req.body;
   
