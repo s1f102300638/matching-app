@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api, { API_BASE_URL } from '../config/api';
 
 const Chat = () => {
   const { matchId } = useParams();
@@ -29,7 +29,7 @@ const Chat = () => {
 
   const fetchMatchInfo = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/matches/${matchId}`);
+      const response = await api.get(`/api/matches/${matchId}`);
       setMatchInfo(response.data);
     } catch (error) {
       console.error('Failed to fetch match info:', error);
@@ -49,7 +49,7 @@ const Chat = () => {
 
   const fetchMessages = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/messages/${matchId}`);
+      const response = await api.get(`/api/messages/${matchId}`);
       setMessages(response.data);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -83,7 +83,7 @@ const Chat = () => {
     
     setSending(true);
     try {
-      await axios.post(`http://localhost:5000/api/messages/${matchId}`, {
+      await api.post(`/api/messages/${matchId}`, {
         message: newMessage,
       });
       
@@ -229,7 +229,7 @@ const Chat = () => {
           <div className="chat-user-info">
             <img
               src={matchInfo.photo ? 
-                `http://localhost:5000${matchInfo.photo}` : 
+                `${API_BASE_URL}${matchInfo.photo}` : 
                 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Cpath d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"%3E%3C/path%3E%3Ccircle cx="12" cy="7" r="4"%3E%3C/circle%3E%3C/svg%3E'
               }
               alt={matchInfo.name}

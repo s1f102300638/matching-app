@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api from '../config/api';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -78,7 +78,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/register', {
+      const response = await api.post('/api/register', {
         email: formData.email,
         password: formData.password,
         name: formData.name,

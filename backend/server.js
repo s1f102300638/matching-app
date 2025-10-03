@@ -14,8 +14,29 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here-change-in-pro
 // 本番用: 招待コードチェックを有効化
 const DISABLE_INVITE_CODE = false;
 
-// ミドルウェア
-app.use(cors());
+// CORS設定（本番環境用）
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://matching-app-wheat.vercel.app',
+  'https://matching-app-git-main-ss-projects-671e106f.vercel.app',
+  'https://matching-4h3u7urh4-ss-projects-671e106f.vercel.app'
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // originがundefinedの場合（Postmanなど）も許可
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
@@ -609,6 +630,7 @@ app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
   if (DISABLE_INVITE_CODE) {
     console.log('⚠️ 警告: 招待コードチェックが無効化されています（開発モード）');
   } else {

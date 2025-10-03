@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api from '../config/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -18,62 +18,22 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // バックエンドAPIへの接続を試みる
-      try {
-        const response = await axios.post('http://localhost:5000/api/login', {
-          email,
-          password,
-        });
+      const response = await api.post('/api/login', {
+        email,
+        password,
+      });
 
-        login(response.data.token, response.data.user);
-        navigate('/');
-        return;
-      } catch (apiError) {
-        // APIが利用できない場合はダミー認証を使用
-        console.log('API not available, using dummy authentication');
-        
-        // ダミー認証（デモ用）
-        if (email && password) {
-          const dummyUser = {
-            id: 1,
-            name: email.split('@')[0],
-            email: email,
-            age: 25,
-            bio: 'マッチングアプリを楽しんでいます！',
-            photo: null
-          };
-          
-          // ダミートークンとユーザー情報を保存
-          const dummyToken = 'dummy-token-' + Date.now();
-          login(dummyToken, dummyUser);
-          
-          // ホーム画面に遷移
-          setTimeout(() => {
-            navigate('/');
-          }, 500);
-        } else {
-          setError('メールアドレスとパスワードを入力してください');
-        }
-      }
+      login(response.data.token, response.data.user);
+      navigate('/');
     } catch (error) {
-      setError('ログインに失敗しました。もう一度お試しください。');
+      if (error.response?.data?.error) {
+        setError(error.response.data.error);
+      } else {
+        setError('ログインに失敗しました。もう一度お試しください。');
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  // デモ用クイックログイン
-  const handleDemoLogin = () => {
-    setEmail('demo@example.com');
-    setPassword('demo123');
-    
-    // 自動的にフォームを送信
-    setTimeout(() => {
-      const form = document.querySelector('.auth-form');
-      if (form) {
-        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-      }
-    }, 100);
   };
 
   return (
@@ -144,21 +104,6 @@ const Login = () => {
           ) : (
             'ログイン'
           )}
-        </button>
-        
-        {/* デモログインボタン */}
-        <button
-          type="button"
-          onClick={handleDemoLogin}
-          className="btn btn-secondary"
-          style={{
-            marginTop: '12px',
-            background: 'linear-gradient(90deg, #667eea, #764ba2)',
-            border: 'none',
-            color: 'white'
-          }}
-        >
-          🚀 デモアカウントでログイン
         </button>
         
         <div style={{ 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../config/api';
 import './Admin.css';
 
 const Admin = () => {
@@ -33,15 +33,7 @@ const Admin = () => {
 
   const checkAdmin = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-      
-      const response = await axios.get('/api/profile', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/api/profile');
       
       if (!response.data.is_admin) {
         navigate('/');
@@ -54,10 +46,7 @@ const Admin = () => {
   const fetchInviteCodes = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/admin/invite-codes', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/api/admin/invite-codes');
       setInviteCodes(response.data);
     } catch (error) {
       setError('招待コードの取得に失敗しました');
@@ -69,10 +58,7 @@ const Admin = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/admin/users', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/api/admin/users');
       setUsers(response.data);
     } catch (error) {
       setError('ユーザー一覧の取得に失敗しました');
@@ -84,10 +70,7 @@ const Admin = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/admin/stats', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/api/admin/stats');
       setStats(response.data);
     } catch (error) {
       setError('統計情報の取得に失敗しました');
@@ -103,10 +86,7 @@ const Admin = () => {
     setSuccess('');
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post('/api/admin/invite-codes', codeForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.post('/api/admin/invite-codes', codeForm);
       
       setSuccess(`招待コード「${response.data.code}」を生成しました`);
       setCodeForm({ maxUses: 1, expiresInDays: '' });
@@ -124,10 +104,7 @@ const Admin = () => {
     }
     
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`/api/admin/invite-codes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.delete(`/api/admin/invite-codes/${id}`);
       
       setSuccess('招待コードを削除しました');
       fetchInviteCodes();
