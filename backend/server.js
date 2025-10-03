@@ -174,6 +174,32 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 一時的な管理者設定エンドポイント（登録後に削除すること）
+app.post('/api/setup-admin', async (req, res) => {
+  const { email, secretKey } = req.body;
+  
+  // 簡単なセキュリティチェック
+  if (secretKey !== 'TEMP_ADMIN_SETUP_2025') {
+    return res.status(403).json({ error: 'Invalid secret key' });
+  }
+  
+  db.run(
+    'UPDATE users SET is_admin = 1 WHERE email = ?',
+    [email],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'ユーザーが見つかりません' });
+      }
+      
+      res.json({ success: true, message: '管理者権限を付与しました' });
+    }
+  );
+});
+
 // 招待コード検証
 app.post('/api/verify-invite-code', async (req, res) => {
   if (DISABLE_INVITE_CODE) {
