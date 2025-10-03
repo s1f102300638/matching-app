@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here-change-in-production';
 
 // 本番用: 招待コードチェックを有効化
-const DISABLE_INVITE_CODE = false;
+const DISABLE_INVITE_CODE = true; // 一時的に無効化（管理者登録用）
 
 // CORS設定（本番環境用）
 const allowedOrigins = [
