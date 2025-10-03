@@ -165,6 +165,15 @@ function generateInviteCode() {
 
 // API エンドポイント
 
+// ヘルスチェックエンドポイント（認証不要）
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // 招待コード検証
 app.post('/api/verify-invite-code', async (req, res) => {
   if (DISABLE_INVITE_CODE) {
