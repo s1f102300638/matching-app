@@ -1,7 +1,10 @@
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcryptjs');
+/**
+ * 管理者作成ツール（PostgreSQL版）
+ */
 
-const db = new sqlite3.Database('./matching.db');
+require('dotenv').config();
+const bcrypt = require('bcryptjs');
+const { query, closePool } = require('./db');
 
 // 管理者情報（ここを変更してください）
 const ADMIN_EMAIL = 'admin@test.com';
@@ -11,48 +14,41 @@ const ADMIN_AGE = 25;
 
 async function createAdmin() {
   try {
-    // 既存のユーザーを確認
-    db.get('SELECT * FROM users WHERE email = ?', [ADMIN_EMAIL], async (err, user) => {
-      if (err) {
-        console.error('エラー:', err);
-        return;
-      }
+    console.log('╔════════════════════════════════════════════════════════╗');
+    console.log('║            🔑 管理者アカウント作成ツール             ║');
+    console.log('╚════════════════════════════════════════════════════════╝\n');
 
-      if (user) {
-        // 既にユーザーが存在する場合、管理者権限を付与
-        db.run('UPDATE users SET is_admin = 1 WHERE email = ?', [ADMIN_EMAIL], (err) => {
-          if (err) {
-            console.error('エラー:', err);
-          } else {
-            console.log('✅ 既存のユーザーを管理者にしました！');
-            console.log(`   メール: ${ADMIN_EMAIL}`);
-            db.close();
-          }
-        });
-      } else {
-        // 新規管理者を作成
-        const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
-        
-        db.run(
-          'INSERT INTO users (email, password, name, age, is_admin) VALUES (?, ?, ?, ?, 1)',
-          [ADMIN_EMAIL, hashedPassword, ADMIN_NAME, ADMIN_AGE],
-          function(err) {
-            if (err) {
-              console.error('エラー:', err);
-            } else {
-              console.log('✅ 管理者アカウントを作成しました！');
-              console.log(`   メール: ${ADMIN_EMAIL}`);
-              console.log(`   パスワード: ${ADMIN_PASSWORD}`);
-              console.log(`   ID: ${this.lastID}`);
-            }
-            db.close();
-          }
-        );
-      }
-    });
+    // 既存のユーザーを確認
+    const userResult = await query('SELECT * FROM users WHERE email = $1', [ADMIN_EMAIL]);
+
+    if (userResult.rows.length > 0) {
+      // 既にユーザーが存在する場合、管理者権限を付与
+      await query('UPDATE users SET is_admin = TRUE WHERE email = $1', [ADMIN_EMAIL]);
+      
+      console.log('✅ 既存のユーザーを管理者にしました！');
+      console.log(`   メール: ${ADMIN_EMAIL}`);
+    } else {
+      // 新規管理者を作成
+      const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
+      const now = Math.floor(Date.now() / 1000);
+
+      const result = await query(
+        'INSERT INTO users (email, password, name, age, is_admin, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+        [ADMIN_EMAIL, hashedPassword, ADMIN_NAME, ADMIN_AGE, true, now]
+      );
+
+      console.log('✅ 管理者アカウントを作成しました！');
+      console.log(`   メール: ${ADMIN_EMAIL}`);
+      console.log(`   パスワード: ${ADMIN_PASSWORD}`);
+      console.log(`   ID: ${result.rows[0].id}`);
+    }
+
+    await closePool();
+    process.exit(0);
   } catch (error) {
-    console.error('エラー:', error);
-    db.close();
+    console.error('❌ エラー:', error.message);
+    await closePool();
+    process.exit(1);
   }
 }
 

@@ -1,19 +1,23 @@
 {
   "name": "matching-app-backend",
-  "version": "1.0.0",
-  "description": "マッチングアプリのバックエンド",
+  "version": "2.0.0",
+  "description": "マッチングアプリのバックエンド（PostgreSQL版）",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node init-db.js",
-    "reset-db": "rm -f matching.db && npm run init-db",
+    "check-db": "node check-db.js",
+    "view-users": "node view-users.js",
+    "create-admin": "node create-admin.js",
+    "reset-password": "node reset-password.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "sqlite3": "^5.1.6",
+    "pg": "^8.11.0",
+    "pg-hstore": "^2.3.4",
     "multer": "^1.4.5-lts.1",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.0",

@@ -57,7 +57,7 @@ A full-stack, Tinder-inspired matching application built with React, Node.js, Ex
 ### Backend
 - **Runtime:** Node.js 14+
 - **Framework:** Express.js
-- **Database:** SQLite3
+- **Database:** PostgreSQL (previously SQLite3)
 - **Authentication:** JWT (jsonwebtoken), bcrypt
 - **File Upload:** Multer
 - **Security:** CORS, express-validator
@@ -564,14 +564,36 @@ Response: 200 OK
      - `REACT_APP_API_URL`: `https://your-backend.onrender.com`
 4. Deploy
 
-### Database Migration (Production)
+### PostgreSQL Setup (Required)
 
-For production, consider migrating from SQLite to PostgreSQL:
+⚠️ **IMPORTANT**: This application now uses PostgreSQL instead of SQLite.
 
-1. Install pg: `npm install pg`
-2. Update database connection in `server.js`
-3. Create migration scripts
-4. Use a service like Supabase or Railway for PostgreSQL hosting
+**Quick Start:**
+
+1. **Local Development with PostgreSQL:**
+   ```bash
+   # Install PostgreSQL locally or use Docker
+   docker run --name postgres -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres
+   
+   # Create database
+   createdb matching_app
+   
+   # Set DATABASE_URL in .env
+   DATABASE_URL=postgresql://postgres:password@localhost:5432/matching_app
+   ```
+
+2. **Render.com (Production):**
+   - Create a free PostgreSQL instance on Render
+   - Copy the Internal Database URL
+   - Add as `DATABASE_URL` environment variable
+
+**📚 Detailed Migration Guide:** See [POSTGRESQL_MIGRATION.md](./POSTGRESQL_MIGRATION.md) for complete instructions.
+
+**Database Initialization:**
+```bash
+cd backend
+npm run init-db  # Creates tables, indexes, and sample data
+```
 
 ---
 
