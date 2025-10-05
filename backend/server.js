@@ -33,16 +33,12 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: function(origin, callback) {
-    // 本番環境ではoriginなしのリクエストをブロック
-    if (!origin && NODE_ENV === 'production') {
-      return callback(new Error('Origin header is required'));
-    }
-    
-    // 開発環境のみoriginなしを許可（Postman等のテスト用）
-    if (!origin && NODE_ENV === 'development') {
+    // originなしのリクエストを許可（Renderの内部ヘルスチェック、Postman等）
+    if (!origin) {
       return callback(null, true);
     }
     
+    // 許可されたoriginからのリクエスト
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
