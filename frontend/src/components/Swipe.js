@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNavigation from './BottomNavigation';
-import axios from 'axios';
+import api, { API_BASE_URL } from '../config/api';
 
 const Swipe = () => {
   const [candidates, setCandidates] = useState([]);
@@ -34,7 +34,12 @@ const Swipe = () => {
 
   const fetchCandidates = async () => {
     try {
-      // ダミーデータをより充実させる
+      const response = await api.get('/api/candidates');
+      setCandidates(response.data);
+      setCurrentIndex(0);
+    } catch (error) {
+      console.error('Failed to fetch candidates:', error);
+      // APIが利用できない場合のフォールバック
       const dummyData = [
         {
           id: 1,
@@ -152,12 +157,8 @@ const Swipe = () => {
           instagram: '@ayaka_lifestyle'
         }
       ];
-
-      // APIの代わりにダミーデータを使用
       setCandidates(dummyData);
       setCurrentIndex(0);
-    } catch (error) {
-      console.error('Failed to fetch candidates:', error);
     } finally {
       setLoading(false);
     }
@@ -364,7 +365,7 @@ const Swipe = () => {
               >
                 <img
                   src={nextCandidate.photo ? 
-                    `http://localhost:5000${nextCandidate.photo}` : 
+                    `${API_BASE_URL}${nextCandidate.photo}` : 
                     `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='600' viewBox='0 0 400 600'%3E%3Crect fill='%23e0e0e0' width='400' height='600'/%3E%3C/svg%3E`
                   }
                   alt="Next"
@@ -436,7 +437,7 @@ const Swipe = () => {
               <div style={{ position: 'relative', width: '100%', height: '65%' }}>
                 <img
                   src={currentCandidate.photo ? 
-                    `http://localhost:5000${currentCandidate.photo}` : 
+                    `${API_BASE_URL}${currentCandidate.photo}` : 
                     'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600"%3E%3Crect fill="%23f0f0f0" width="400" height="600"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="sans-serif" font-size="20"%3E写真なし%3C/text%3E%3C/svg%3E'
                   }
                   alt={currentCandidate.name}
@@ -848,7 +849,7 @@ const Swipe = () => {
             <div className="match-modal-avatars">
               <img
                 src={user?.photo ? 
-                  `http://localhost:5000${user.photo}` : 
+                  `${API_BASE_URL}${user.photo}` : 
                   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="white"%3E%3Cpath d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"%3E%3C/path%3E%3Ccircle cx="12" cy="7" r="4"%3E%3C/circle%3E%3C/svg%3E'
                 }
                 alt="You"
@@ -861,7 +862,7 @@ const Swipe = () => {
               
               <img
                 src={matchedUser.photo ? 
-                  `http://localhost:5000${matchedUser.photo}` : 
+                  `${API_BASE_URL}${matchedUser.photo}` : 
                   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="white"%3E%3Cpath d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"%3E%3C/path%3E%3Ccircle cx="12" cy="7" r="4"%3E%3C/circle%3E%3C/svg%3E'
                 }
                 alt={matchedUser.name}

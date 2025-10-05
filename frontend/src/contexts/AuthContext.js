@@ -1,8 +1,19 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import api from '../config/api';
 
-const AuthContext = createContext();
+// ========================================
+// 🔐 Authentication Context
+// ========================================
 
+const AuthContext = createContext(null);
+
+/**
+ * useAuth Hook
+ * コンポーネントから認証状態にアクセスするためのカスタムフック
+ * 
+ * @throws {Error} AuthProvider外で使用された場合
+ * @returns {Object} 認証関連の状態と関数
+ */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -11,129 +22,301 @@ export const useAuth = () => {
   return context;
 };
 
+/**
+ * AuthProvider Component
+ * アプリ全体に認証状態を提供するプロバイダー
+ * 
+ * ⚠️ セキュリティ注意:
+ * LocalStorageを使用したトークン保存はXSS攻撃に対して脆弱です。
+ * 本番環境では、HTTPOnly Cookieの使用を強く推奨します。
+ */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [error, setError] = useState(null);
 
+  // ========================================
+  // 🔄 初期化: ローカルストレージからユーザー情報を復元
+  // ========================================
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('token');
       
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       // ローカルストレージからユーザー情報を復元
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         try {
-          setUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
         } catch (e) {
-          console.error('Failed to parse stored user:', e);
+          console.error('❌ Failed to parse stored user:', e);
+          // 破損したデータをクリア
+          localStorage.removeItem('user');
         }
       }
+
+      // バックエンドから最新のユーザー情報を取得
+      try {
+        const response = await api.get('/api/profile');
+        setUser(response.data);
+        localStorage.setItem('user', JSON.stringify(response.data));
+        setError(null);
+      } catch (error) {
+        console.error('⚠️ Failed to fetch user profile:', error);
+        // APIが利用できない場合は、保存されているユーザー情報を使用
+        // エラーは設定しない（オフライン対応）
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  // ========================================
+  // 🔐 ログイン機能
+  // ========================================
+  
+  /**
+   * トークンとユーザー情報を保存してログイン状態にする
+   * @param {string} tokenValue - JWT トークン
+   * @param {Object} userData - ユーザー情報
+   */
+  const login = useCallback((tokenValue, userData) => {
+    try {
+      localStorage.setItem('token', tokenValue);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      setError(null);
+    } catch (error) {
+      console.error('❌ Error saving login data:', error);
+      setError('Failed to save login information');
+    }
+  }, []);
+
+  /**
+   * メールアドレスとパスワードでログイン
+   * @param {string} email - メールアドレス
+   * @param {string} password - パスワード
+   * @returns {Promise<Object>} { success: boolean, error?: string }
+   */
+  const loginWithCredentials = useCallback(async (email, password) => {
+    try {
+      setError(null);
+      const response = await api.post('/api/login', { email, password });
+      const { token, user: userData } = response.data;
       
-      // バックエンドが利用可能な場合は最新のユーザー情報を取得
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
-  }, [token]);
-
-  const fetchUser = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/profile');
-      setUser(response.data);
-      localStorage.setItem('user', JSON.stringify(response.data));
-    } catch (error) {
-      // APIが利用できない場合は、保存されているユーザー情報を使用
-      console.log('Using stored user information');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Login.js と Register.js から呼ばれる新しいlogin関数
-  const login = (tokenValue, userData) => {
-    localStorage.setItem('token', tokenValue);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setToken(tokenValue);
-    setUser(userData);
-    if (tokenValue) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${tokenValue}`;
-    }
-  };
-
-  // 従来のlogin関数（互換性のため残す）
-  const loginWithCredentials = async (email, password) => {
-    try {
-      const response = await axios.post('http://localhost:5000/api/login', {
-        email,
-        password,
-      });
-      const { token, user } = response.data;
-      login(token, user);
+      login(token, userData);
       return { success: true };
     } catch (error) {
+      const errorMessage = error.message || 'Login failed';
+      setError(errorMessage);
       return {
         success: false,
-        error: error.response?.data?.error || 'Login failed',
+        error: errorMessage,
       };
     }
-  };
+  }, [login]);
 
-  const register = async (userData) => {
+  /**
+   * 新規ユーザー登録
+   * @param {Object} userData - 登録情報
+   * @returns {Promise<Object>} { success: boolean, error?: string }
+   */
+  const register = useCallback(async (userData) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/register', userData);
-      const { token, user } = response.data;
-      login(token, user);
+      setError(null);
+      const response = await api.post('/api/register', userData);
+      const { token, user: newUser } = response.data;
+      
+      login(token, newUser);
       return { success: true };
     } catch (error) {
+      const errorMessage = error.message || 'Registration failed';
+      setError(errorMessage);
       return {
         success: false,
-        error: error.response?.data?.error || 'Registration failed',
+        error: errorMessage,
       };
     }
-  };
+  }, [login]);
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-    delete axios.defaults.headers.common['Authorization'];
-  };
-
-  const updateProfile = async (profileData) => {
+  /**
+   * ログアウト
+   */
+  const logout = useCallback(() => {
     try {
-      // APIが利用可能な場合
-      await axios.put('http://localhost:5000/api/profile', profileData);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setError(null);
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+    }
+  }, []);
+
+  // ========================================
+  // 👤 プロフィール管理
+  // ========================================
+
+  /**
+   * プロフィール情報を更新
+   * @param {Object} profileData - 更新するプロフィール情報
+   * @returns {Promise<Object>} { success: boolean, error?: string }
+   */
+  const updateProfile = useCallback(async (profileData) => {
+    try {
+      setError(null);
+      await api.put('/api/profile', profileData);
+      
       const updatedUser = { ...user, ...profileData };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      
       return { success: true };
     } catch (error) {
-      // APIが利用できない場合はローカルで更新
-      const updatedUser = { ...user, ...profileData };
+      const errorMessage = error.message || 'Profile update failed';
+      setError(errorMessage);
+      
+      // APIが利用できない場合でもローカルで更新（オフライン対応）
+      if (error.status === 0) {
+        const updatedUser = { ...user, ...profileData };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return { success: true };
+      }
+      
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }, [user]);
+
+  /**
+   * ユーザー情報を部分的に更新（ローカルのみ）
+   * @param {Object} userData - 更新するユーザー情報
+   */
+  const updateUser = useCallback((userData) => {
+    try {
+      const updatedUser = { ...user, ...userData };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
-      return { success: true };
+    } catch (error) {
+      console.error('❌ Error updating user:', error);
     }
-  };
+  }, [user]);
 
-  const updateUser = (userData) => {
-    const updatedUser = { ...user, ...userData };
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-  };
+  /**
+   * プロフィール写真を更新
+   * @param {string} photoUrl - 写真のURL
+   */
+  const updateProfilePhoto = useCallback((photoUrl) => {
+    try {
+      const updatedUser = { ...user, photo: photoUrl };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('❌ Error updating profile photo:', error);
+    }
+  }, [user]);
 
+  // ========================================
+  // 🔍 ユーティリティ関数
+  // ========================================
+
+  /**
+   * 現在のユーザーが管理者かチェック
+   * @returns {boolean}
+   */
+  const isAdmin = useCallback(() => {
+    return user?.is_admin === 1 || user?.is_admin === true;
+  }, [user]);
+
+  /**
+   * 認証済みかチェック
+   * @returns {boolean}
+   */
+  const isAuthenticated = useCallback(() => {
+    return !!user && !!localStorage.getItem('token');
+  }, [user]);
+
+  /**
+   * エラーをクリア
+   */
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // ========================================
+  // 📤 Context Value
+  // ========================================
   const value = {
+    // State
     user,
     loading,
+    error,
+    
+    // Authentication
     login,
     loginWithCredentials,
     register,
     logout,
+    
+    // Profile Management
     updateProfile,
     updateUser,
+    updateProfilePhoto,
+    
+    // Utilities
+    isAdmin,
+    isAuthenticated,
+    clearError,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+// ========================================
+// 📝 Usage Example
+// ========================================
+
+/**
+ * コンポーネントでの使用例:
+ * 
+ * import { useAuth } from './contexts/AuthContext';
+ * 
+ * function MyComponent() {
+ *   const { 
+ *     user, 
+ *     loading, 
+ *     error,
+ *     loginWithCredentials, 
+ *     logout,
+ *     isAdmin,
+ *     clearError
+ *   } = useAuth();
+ * 
+ *   if (loading) return <div>Loading...</div>;
+ *   if (error) return <div>Error: {error}</div>;
+ * 
+ *   return (
+ *     <div>
+ *       {user ? (
+ *         <>
+ *           <p>Welcome, {user.name}!</p>
+ *           {isAdmin() && <p>Admin privileges</p>}
+ *           <button onClick={logout}>Logout</button>
+ *         </>
+ *       ) : (
+ *         <LoginForm onLogin={loginWithCredentials} />
+ *       )}
+ *     </div>
+ *   );
+ * }
+ */

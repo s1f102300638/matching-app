@@ -1,36 +1,173 @@
-# 依存関係
+# ========================================
+# Dependencies
+# ========================================
 node_modules/
 /.pnp
 .pnp.js
 
-# テスト
+# ========================================
+# Testing
+# ========================================
 /coverage
-
-# 本番環境
-/build
-
-# その他
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 
-# データベース（ローカルのみ）
+# ========================================
+# Production Build
+# ========================================
+/build
+/dist
+/.next
+/out
+
+# ========================================
+# Environment Variables (CRITICAL!)
+# ========================================
+# ⚠️ NEVER commit these files!
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.*.local
+
+# ========================================
+# Database Files (Local Only)
+# ========================================
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 
-# アップロードファイル（ローカルのみ）
+# ========================================
+# Uploaded Files (Local Only)
+# ========================================
 uploads/
+/backend/uploads/
+/frontend/public/uploads/
 
-# エディタ設定
+# ========================================
+# IDE & Editor Files
+# ========================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+.vs/
+
+# ========================================
+# OS Files
+# ========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ========================================
+# Temporary & Backup Files
+# ========================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*-old.js
+*-backup.js
+*-FIXED.js
+*-new.js
+*.orig
+*.rej
+
+# ========================================
+# Package Manager Locks
+# ========================================
+# Uncomment if you want to ignore lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ========================================
+# TypeScript
+# ========================================
+*.tsbuildinfo
+next-env.d.ts
+
+# ========================================
+# Next.js
+# ========================================
+.next/
+out/
+.vercel
+
+# ========================================
+# Gatsby
+# ========================================
+.cache/
+public
+
+# ========================================
+# VuePress
+# ========================================
+.vuepress/dist
+
+# ========================================
+# Serverless
+# ========================================
+.serverless/
+.webpack/
+
+# ========================================
+# FuseBox
+# ========================================
+.fusebox/
+
+# ========================================
+# DynamoDB Local
+# ========================================
+.dynamodb/
+
+# ========================================
+# TernJS
+# ========================================
+.tern-port
+
+# ========================================
+# Stores VSCode versions
+# ========================================
+.vscode-test
+
+# ========================================
+# Yarn
+# ========================================
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ========================================
+# Misc
+# ========================================
+.eslintcache
+.stylelintcache
+.cache
+.parcel-cache
