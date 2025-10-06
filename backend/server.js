@@ -1,3 +1,17 @@
+/**
+ * Matching App Backend Server
+ * PostgreSQL + Express.js
+ * 
+ * 🚨 セキュリティ注意事項:
+ * - JWT_SECRETとADMIN_SETUP_SECRETは環境変数で必ず設定すること
+ * - .envファイルをGitにコミットしないこと
+ * - trust proxy設定はtrueではなく数値を使用すること
+ * 
+ * ⚠️ 未使用パッケージ:
+ * - express-validator: インストール済みだが未使用
+ *   将来的に入力バリデーションを強化する場合に使用することを推奨
+ */
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -11,37 +25,51 @@ const { query, pool, closePool } = require('./db');
 const app = express();
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+// const { body, validationResult } = require('express-validator'); // 🚧 将来の入力バリデーション強化用
 
 // 🔧 プロキシ設定（Render等のリバースプロキシに対応）
+// Renderのリバースプロキシを信頼（最初の1層のみ）
+// ⚠️ true は危険！すべてのプロキシを無条件に信頼してしまう
 app.set('trust proxy', 1);
 
 // Helmetでセキュリティヘッダーを設定
 app.use(helmet());
 
-// 全APIエンドポイントへの一般的なレート制限
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15分
-  max: 100,
-  message: { error: 'Too many requests from this IP, please try again later.' },
-  standardHeaders: true, // RateLimit-* ヘッダーを返す
-  legacyHeaders: false, // X-RateLimit-* ヘッダーを無効化
-  handler: (req, res) => {
-    console.log(`⚠️ Rate limit exceeded for IP: ${req.ip}`);
-    res.status(429).json({ error: 'Too many requests from this IP, please try again later.' });
-  }
-});
-
-// ログイン・登録用の厳しいレート制限
+// ログイン・登録用の厳しいレート制限（express-rate-limit v8形式）
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 5, // 最大5回の試行
-  skipSuccessfulRequests: false, // ✅ 成功したリクエストもカウント（より厳格）
-  message: { error: 'Too many authentication attempts, please try again later.' },
-  standardHeaders: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skipSuccessfulRequests: false, // すべての試行をカウント（サーバー負荷制限優先）
+  handler: (req, res) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    // 本番環境では最小限のログのみ（IPは部分的にマスク）
+    console.log(`⚠️ Rate limit exceeded - IP: ${ip.substring(0, 10)}...`);
+    
+    // 開発環境でのみ詳細ログ
+    if (NODE_ENV === 'development') {
+      console.log(`   Full IP: ${ip}`);
+      console.log(`   Email: ${req.body.email || 'not provided'}`);
+      console.log(`   Headers:`, req.headers['x-forwarded-for']);
+    }
+    
+    res.status(429).json({ 
+      error: 'Too many authentication attempts, please try again later.',
+      retryAfter: Math.ceil(15 * 60) // 15分（秒単位）
+    });
+  }
+});
+
+// 全APIエンドポイントへの一般的なレート制限
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 1000, // 十分に高く設定してauthLimiterを優先
+  standardHeaders: 'draft-7',
   legacyHeaders: false,
   handler: (req, res) => {
-    console.log(`🚫 Auth rate limit exceeded for IP: ${req.ip}`);
-    res.status(429).json({ error: 'Too many authentication attempts, please try again later.' });
+    console.log(`⚠️ General rate limit exceeded for IP: ${req.ip}`);
+    res.status(429).json({ error: 'Too many requests from this IP, please try again later.' });
   }
 });
 const PORT = process.env.PORT || 5000;
@@ -83,11 +111,13 @@ app.use(cors({
   },
   credentials: true
 }));
-// レート制限を適用
-app.use('/api/', generalLimiter);
-app.use('/api/login', authLimiter);
-app.use('/api/register', authLimiter);
+
 app.use(express.json({ limit: '10mb' })); // リクエストサイズ制限
+
+// 🔒 レート制限を適用（順序重要：具体的なルートを先に定義）
+// 認証エンドポイントには authLimiter を個別に適用
+// 一般 API には generalLimiter を全体に適用
+app.use('/api/', generalLimiter);
 app.use('/uploads', express.static('uploads'));
 
 // アップロードディレクトリの作成
@@ -381,7 +411,13 @@ app.post('/api/verify-invite-code', async (req, res) => {
 });
 
 // 📝 ユーザー登録（改善版）
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, async (req, res) => {
+  // 🔍 デバッグログ（開発環境のみ）
+  if (NODE_ENV === 'development') {
+    const ip = req.ip || req.connection.remoteAddress;
+    console.log(`📝 Register attempt from IP: ${ip}, Email: ${req.body.email || 'not provided'}`);
+  }
+  
   const { email, password, name, age, bio, inviteCode } = req.body;
 
   // 🔍 入力バリデーション
@@ -478,10 +514,17 @@ app.post('/api/register', async (req, res) => {
 });
 
 // 🔐 ログイン（改善版）
-
-app.post('/api/login', async (req, res) => {
-  // 🔍 デバッグ: リクエスト情報をログ
-  console.log(`🔐 Login attempt from IP: ${req.ip}, Email: ${req.body.email || 'not provided'}`);
+app.post('/api/login', authLimiter, async (req, res) => {
+  // 🔍 デバッグログ（開発環境のみ）
+  if (NODE_ENV === 'development') {
+    const ip = req.ip || req.connection.remoteAddress;
+    console.log(`🔐 Login attempt from IP: ${ip}, Email: ${req.body.email || 'not provided'}`);
+    console.log(`   Headers:`, {
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'x-real-ip': req.headers['x-real-ip'],
+      'cf-connecting-ip': req.headers['cf-connecting-ip']
+    });
+  }
   
   const { email, password } = req.body;
 
