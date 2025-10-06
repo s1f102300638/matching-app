@@ -12,6 +12,9 @@ const app = express();
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
+// 🔧 プロキシ設定（Render等のリバースプロキシに対応）
+app.set('trust proxy', 1);
+
 // Helmetでセキュリティヘッダーを設定
 app.use(helmet());
 
@@ -19,14 +22,27 @@ app.use(helmet());
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 100,
-  message: 'Too many requests from this IP, please try again later.',
+  message: { error: 'Too many requests from this IP, please try again later.' },
+  standardHeaders: true, // RateLimit-* ヘッダーを返す
+  legacyHeaders: false, // X-RateLimit-* ヘッダーを無効化
+  handler: (req, res) => {
+    console.log(`⚠️ Rate limit exceeded for IP: ${req.ip}`);
+    res.status(429).json({ error: 'Too many requests from this IP, please try again later.' });
+  }
 });
 
 // ログイン・登録用の厳しいレート制限
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  skipSuccessfulRequests: true,
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 5, // 最大5回の試行
+  skipSuccessfulRequests: false, // ✅ 成功したリクエストもカウント（より厳格）
+  message: { error: 'Too many authentication attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    console.log(`🚫 Auth rate limit exceeded for IP: ${req.ip}`);
+    res.status(429).json({ error: 'Too many authentication attempts, please try again later.' });
+  }
 });
 const PORT = process.env.PORT || 5000;
 
@@ -462,7 +478,11 @@ app.post('/api/register', async (req, res) => {
 });
 
 // 🔐 ログイン（改善版）
+
 app.post('/api/login', async (req, res) => {
+  // 🔍 デバッグ: リクエスト情報をログ
+  console.log(`🔐 Login attempt from IP: ${req.ip}, Email: ${req.body.email || 'not provided'}`);
+  
   const { email, password } = req.body;
 
   // 入力バリデーション
