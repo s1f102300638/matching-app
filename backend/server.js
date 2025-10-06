@@ -35,13 +35,29 @@ app.set('trust proxy', 1);
 // Helmetでセキュリティヘッダーを設定
 app.use(helmet());
 
-// ログイン・登録用の厳しいレート制限（express-rate-limit v8形式）
+// ログイン・登録用の厳しいレート制限（express-rate-limit v8対応）
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 5, // 最大5回の試行
-  standardHeaders: 'draft-7',
+  standardHeaders: true, // ✅ v8では true/false のみ（'draft-7'は使えない）
   legacyHeaders: false,
   skipSuccessfulRequests: false, // すべての試行をカウント（サーバー負荷制限優先）
+  
+  // 🔑 キー生成方法を明示的に指定（IPアドレスベース）
+  keyGenerator: (req) => {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    console.log(`🔑 Rate limit key generated: ${ip}`);
+    return ip;
+  },
+  
+  // 🐛 デバッグ用: 各リクエストで呼ばれる
+  skip: (req) => {
+    console.log(`🔵 authLimiter called - IP: ${req.ip}, Headers:`, {
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'x-real-ip': req.headers['x-real-ip']
+    });
+    return false; // スキップしない
+  },
   handler: (req, res) => {
     const ip = req.ip || req.connection.remoteAddress;
     // 本番環境では最小限のログのみ（IPは部分的にマスク）
@@ -65,7 +81,7 @@ const authLimiter = rateLimit({
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 1000, // 十分に高く設定してauthLimiterを優先
-  standardHeaders: 'draft-7',
+  standardHeaders: true, // ✅ v8では true/false のみ
   legacyHeaders: false,
   handler: (req, res) => {
     console.log(`⚠️ General rate limit exceeded for IP: ${req.ip}`);
