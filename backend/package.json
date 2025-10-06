@@ -10,18 +10,22 @@
     "check-db": "node check-db.js",
     "view-users": "node view-users.js",
     "create-admin": "node create-admin.js",
+    "create-invite": "node create-invite-code.js",
     "reset-password": "node reset-password.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "pg": "^8.11.0",
-    "pg-hstore": "^2.3.4",
-    "multer": "^1.4.5-lts.1",
     "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.1.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.0",
-    "dotenv": "^16.0.3"
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.11.0",
+    "pg-hstore": "^2.3.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

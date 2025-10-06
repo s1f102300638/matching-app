@@ -18,9 +18,15 @@ if (!DATABASE_URL) {
 // 🔧 PostgreSQL接続プールの作成
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? {
-    rejectUnauthorized: false // Renderなどのホスティングサービスで必要
-  } : false
+  // 🔒 SSL設定（本番環境で証明書検証を有効化）
+ssl: process.env.NODE_ENV === 'production' ? {
+  rejectUnauthorized: true, // ✅ セキュアに変更
+} : false,
+
+// 🔧 接続プール設定を追加
+max: 20,
+idleTimeoutMillis: 30000,
+connectionTimeoutMillis: 2000,
 });
 
 // 🔍 接続テスト
@@ -30,7 +36,8 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   console.error('❌ Unexpected error on idle PostgreSQL client:', err);
-  process.exit(-1);
+  // ✅ プロセスを終了させない（ログ記録のみ）
+  // process.exit(-1); を削除
 });
 
 /**

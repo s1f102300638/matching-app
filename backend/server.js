@@ -9,6 +9,25 @@ const fs = require('fs');
 const { query, pool, closePool } = require('./db');
 
 const app = express();
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+
+// Helmetでセキュリティヘッダーを設定
+app.use(helmet());
+
+// 全APIエンドポイントへの一般的なレート制限
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 100,
+  message: 'Too many requests from this IP, please try again later.',
+});
+
+// ログイン・登録用の厳しいレート制限
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+});
 const PORT = process.env.PORT || 5000;
 
 // 🔒 セキュリティ: JWT_SECRETは必須、フォールバック禁止
@@ -48,7 +67,10 @@ app.use(cors({
   },
   credentials: true
 }));
-
+// レート制限を適用
+app.use('/api/', generalLimiter);
+app.use('/api/login', authLimiter);
+app.use('/api/register', authLimiter);
 app.use(express.json({ limit: '10mb' })); // リクエストサイズ制限
 app.use('/uploads', express.static('uploads'));
 
