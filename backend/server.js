@@ -43,6 +43,9 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: false, // すべての試行をカウント（サーバー負荷制限優先）
   
+  // ⚠️ IPv6警告を無効化（RenderのCloudflare経由でIPv4のみ使用するため実用上問題なし）
+  validate: false,
+  
   // 🔑 キー生成: x-forwarded-forの最初のIPを使用（実際のクライアントIP）
   keyGenerator: (req) => {
     // Renderのプロキシ構成: クライアント -> Cloudflare -> Render内部
@@ -81,6 +84,7 @@ const generalLimiter = rateLimit({
   max: 1000, // 十分に高く設定してauthLimiterを優先
   standardHeaders: true, // ✅ v8では true/false のみ
   legacyHeaders: false,
+  validate: false, // IPv6警告を無効化
   handler: (req, res) => {
     console.log(`⚠️ General rate limit exceeded for IP: ${req.ip}`);
     res.status(429).json({ error: 'Too many requests from this IP, please try again later.' });
