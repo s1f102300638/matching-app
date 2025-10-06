@@ -127,7 +127,9 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  // 🔑 レート制限ヘッダーをブラウザに公開
+  exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Retry-After']
 }));
 
 app.use(express.json({ limit: '10mb' })); // リクエストサイズ制限
