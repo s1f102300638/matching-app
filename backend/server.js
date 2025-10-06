@@ -28,9 +28,9 @@ const helmet = require('helmet');
 // const { body, validationResult } = require('express-validator'); // 🚧 将来の入力バリデーション強化用
 
 // 🔧 プロキシ設定（Render等のリバースプロキシに対応）
-// Renderのリバースプロキシを信頼（最初の1層のみ）
-// ⚠️ true は危険！すべてのプロキシを無条件に信頼してしまう
-app.set('trust proxy', 1);
+// Renderは複数層のプロキシを使用（Cloudflare + Render内部プロキシ）
+// ⚠️ 1では不十分！内部IP（10.210.x.x）が取得されてしまう
+app.set('trust proxy', true); // ✅ Renderの場合はtrueが必要
 
 // Helmetでセキュリティヘッダーを設定
 app.use(helmet());
@@ -43,29 +43,27 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: false, // すべての試行をカウント（サーバー負荷制限優先）
   
-  // 🔑 キー生成方法を明示的に指定（IPアドレスベース）
+  // 🔑 キー生成: x-forwarded-forの最初のIPを使用（実際のクライアントIP）
   keyGenerator: (req) => {
-    const ip = req.ip || req.connection.remoteAddress || 'unknown';
-    console.log(`🔑 Rate limit key generated: ${ip}`);
+    // Renderのプロキシ構成: クライアント -> Cloudflare -> Render内部
+    // x-forwarded-for: 'クライアントIP, CloudflareIP, Render内部IP'
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = forwarded ? forwarded.split(',')[0].trim() : (req.ip || 'unknown');
+    console.log(`🔑 Rate limit key: ${ip} (from: ${forwarded || req.ip})`);
     return ip;
   },
   
-  // 🐛 デバッグ用: 各リクエストで呼ばれる
-  skip: (req) => {
-    console.log(`🔵 authLimiter called - IP: ${req.ip}, Headers:`, {
-      'x-forwarded-for': req.headers['x-forwarded-for'],
-      'x-real-ip': req.headers['x-real-ip']
-    });
-    return false; // スキップしない
-  },
   handler: (req, res) => {
-    const ip = req.ip || req.connection.remoteAddress;
+    // 実際のクライアントIPを取得
+    const forwarded = req.headers['x-forwarded-for'];
+    const clientIp = forwarded ? forwarded.split(',')[0].trim() : req.ip;
+    
     // 本番環境では最小限のログのみ（IPは部分的にマスク）
-    console.log(`⚠️ Rate limit exceeded - IP: ${ip.substring(0, 10)}...`);
+    console.log(`⚠️ Rate limit exceeded - IP: ${clientIp.substring(0, 10)}...`);
     
     // 開発環境でのみ詳細ログ
     if (NODE_ENV === 'development') {
-      console.log(`   Full IP: ${ip}`);
+      console.log(`   Full IP: ${clientIp}`);
       console.log(`   Email: ${req.body.email || 'not provided'}`);
       console.log(`   Headers:`, req.headers['x-forwarded-for']);
     }
@@ -430,8 +428,9 @@ app.post('/api/verify-invite-code', async (req, res) => {
 app.post('/api/register', authLimiter, async (req, res) => {
   // 🔍 デバッグログ（開発環境のみ）
   if (NODE_ENV === 'development') {
-    const ip = req.ip || req.connection.remoteAddress;
-    console.log(`📝 Register attempt from IP: ${ip}, Email: ${req.body.email || 'not provided'}`);
+    const forwarded = req.headers['x-forwarded-for'];
+    const clientIp = forwarded ? forwarded.split(',')[0].trim() : req.ip;
+    console.log(`📝 Register attempt from IP: ${clientIp}, Email: ${req.body.email || 'not provided'}`);
   }
   
   const { email, password, name, age, bio, inviteCode } = req.body;
@@ -533,8 +532,9 @@ app.post('/api/register', authLimiter, async (req, res) => {
 app.post('/api/login', authLimiter, async (req, res) => {
   // 🔍 デバッグログ（開発環境のみ）
   if (NODE_ENV === 'development') {
-    const ip = req.ip || req.connection.remoteAddress;
-    console.log(`🔐 Login attempt from IP: ${ip}, Email: ${req.body.email || 'not provided'}`);
+    const forwarded = req.headers['x-forwarded-for'];
+    const clientIp = forwarded ? forwarded.split(',')[0].trim() : req.ip;
+    console.log(`🔐 Login attempt from IP: ${clientIp}, Email: ${req.body.email || 'not provided'}`);
     console.log(`   Headers:`, {
       'x-forwarded-for': req.headers['x-forwarded-for'],
       'x-real-ip': req.headers['x-real-ip'],
